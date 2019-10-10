@@ -4,135 +4,200 @@
 #include <iostream>
 #include <conio.h>
 #include <Windows.h>
+#include <vector>
+#include <string>
+#include <ctime>
 #include "Utils.h"
 
 using namespace std;
 
-class Screen {
-	int width;
-	char* canvas;
-
-	static Screen* instance;
-	Screen(int width = 40) 
-		: width(width),
-		canvas(new char[(width+1)])
-	{
-		Borland::initialize();
-	}
-public:
-	static Screen& getInstance() {
-		if (instance == nullptr) {
-			instance = new Screen();
-		}
-		return *instance;
-	}
-
-	~Screen() {
-		if (instance) {
-			delete[] canvas;
-			instance = nullptr;
-		}
-	}
-
-	void draw(const char* shape, int w, const Position& pos)
-	{
-		if (!shape) return;
-		for (int i = 0; i < 1; i++)
-		{
-			strncpy(&canvas[pos.x + (pos.y+i)*(width+1)], &shape[i*w], w);
-		}
-	}
-
-	void render()
-	{
-		for (int i = 0; i < width; i++)
-			canvas[i] = 'O';
-		Borland::gotoxy(0, 0);
-		cout << canvas;
-	}
-
-	void clear()
-	{
-		memset(canvas, ' ', (width + 1));
-		canvas[width+1] = '\0';
-	}
-
-};
-
-Screen* Screen::instance = nullptr;
-
 class GameObject {
-	char* shape;
-	int width;
-	Position pos;
-	Screen& screen;
+	char*		shape;
+	int			width;
+	int			height;
+	Position	pos;
+	Screen&		screen;
+
+	vector<GameObject *> children;
+
 
 public:
-	GameObject(const char* shape, int width) 
-		: width(width), shape(nullptr), pos(0, 0),
-		screen(Screen::getInstance())
-	{
-		if (!shape || strlen(shape) == 0 || width == 0)
+	GameObject(const char* shape, int width, int height, const Position& pos = Position{ 0, 0 } )
+		: height(height), width(width), 
+		shape(nullptr), pos(pos), 
+		screen(Screen::getInstance()) {
+		if (!shape || strlen(shape) == 0 || width == 0 || height == 0)
 		{
 			this->shape = new char[1];
 			this->shape[0] = 'x';
 			width = 1;
+			height = 1;
 		} else {
-			this->shape = new char[width];
-			strncpy(this->shape, shape, width);
+			this->shape = new char[width*height];
+			strncpy(this->shape, shape, width*height);
 		}
 		this->width = width;
+		this->height = height;
 	}
+
 	virtual ~GameObject() {
 		if (shape) { delete[] shape; }
-		width = 0;
+		width = 0, height = 0;
 	}
 
-	void setPos(int x)
-	{ 
-		this->pos.x = x;
+	void add(GameObject* child) {
+		if (!child) return;
+		children.push_back(child);
 	}
 
-	void draw() {
-		screen.draw(shape, width, pos);
+	void setShape(const char* shape) {
+		if (!shape) return;
+		strncpy(this->shape, shape, width*height);
 	}
 
-	virtual void update(const Position& pos) {
+	void setPos(int x, int y) { this->pos.x = x; this->pos.y = y; }
+
+	Position& getPos() { return pos; }
+
+	void internalDraw(const Position& accumulatedPos = Position{ 0,0 })
+	{
+		draw(accumulatedPos);
+		for (auto child : children) 
+			child->internalDraw( pos + accumulatedPos );
+	}
 		
+	virtual void draw(const Position& accumulatedPos = Position{ 0,0 })
+	{		
+		screen.draw(shape, width, height, pos + accumulatedPos);
 	}
 
+	void internalUpdate()
+	{
+		update();
+		for (auto child : children)
+			child->internalUpdate();
+	}
+
+	virtual void update() 
+	{	
+	}
+
+	vector<GameObject *>& getChildren() { return children;  }
+};
+
+class Block : public GameObject {	
+
+	vector<string> sprites;
+	char array[50][70];
+	int current;
+
+public:
+	Block(vector<string>& sprites, int w, int h, 
+		const Position& pos = Position{ 0,0 } )
+		: sprites(sprites), current(0), 
+		GameObject(sprites[current].c_str(), w, h, pos) {}
+
+	void update() {
+		if (getPos().y != 36) {
+			if (Input::GetKeyDown(KeyCode::Right)) {
+			getPos().x++;
+				}
+			if (Input::GetKeyDown(KeyCode::Left)) {
+				getPos().x--;
+			}
+			if (Input::GetKeyDown(KeyCode::Up)) {
+				current = (current + 1) % sprites.size();
+				setShape(sprites[current].c_str());
+			}
+			if (Input::GetKeyDown(KeyCode::Down)) {
+				getPos().y = Screen::getInstance().getHeight();
+			}
+			if (Input::GetKeyDown(KeyCode::A)) {
+				current = (current + 1) % sprites.size();
+				setShape(sprites[current].c_str());
+			}
+			if (Input::GetKeyDown(KeyCode::D)) {
+				current = (current + 3) % sprites.size();
+				setShape(sprites[current].c_str());
+			}
+			getPos().y = (getPos().y + 1) % Screen::getInstance().getHeight();
+		}
+		else {  //2차원 배열로 위치에 저장시켜놓기
+			for (int i = 0; i < 3; i++) {
+				for (int j = 0; j < 3; j++)
+				{
+					if (array[getPos().y + i][getPos().x + j] != ' ')
+						array[getPos().y + i][getPos().x + j] = '\xB2';
+				}
+			}
+		}
+	}
 };
 
 int main()
 {
-	GameObject mine("0", 3);
-	
+	clock_t t1, t2;
+	int plus = 0;
+	Position Gamemap = { 0,0 };
+	Position Nextblock = {40, 0};
+	vector<string> sprites { "\xB2\xB2  \xB2  \xB2 ",
+		"     \xB2\xB2\xB2\xB2", 
+		" \xB2  \xB2  \xB2\xB2", 
+		"   \xB2\xB2\xB2\xB2  ",
+		"    \xB2\xB2 \xB2\xB2",
+		"      \xB2\xB2\xB2",
+		"  \xB2  \xB2  \xB2",
+		"    \xB2 \xB2\xB2\xB2",
+		"  \xB2 \xB2\xB2  \xB2",
+		"   \xB2\xB2\xB2 \xB2 ",
+		"\xB2  \xB2\xB2 \xB2  "
+	};
+	vector<string> sprites2{ " ", " " };
+
 	Screen&	 screen = Screen::getInstance();
-	INPUT_RECORD InputRecord;
-	DWORD Events;
+	vector<GameObject *> gameObjects;
 
-	screen.clear(); screen.render();
+	srand(time(nullptr));
+
+	string mode{ "mode con cols="
+		+ to_string(screen.getWidth() + 4)
+		+ " lines=" + to_string(screen.getHeight() + 5) };
+	system(mode.c_str());
+	system("chcp 437");
+
+	auto parent = new Block{ sprites, 3,3,
+		Position{screen.getWidth()/10, 1} };;
+
+	auto child = new Block{ sprites2, 1,1, Position{0, 2} };
+	parent->add(child);
+	gameObjects.push_back(parent);
+	
+	screen.clear(); screen.render();		
+
 	while (true)
-	{
-		mine.draw();
-		screen.render();		
-		Sleep(30);
+	{	
 		screen.clear();
+		screen.drawRect(Gamemap,30,40);
+		screen.drawRect(Nextblock, 10,5);
+		t1 = clock();
 
-		ReadConsoleInput(GetStdHandle(STD_INPUT_HANDLE), &InputRecord, 1, &Events);
-		if (InputRecord.EventType == MOUSE_EVENT) {
-			if (InputRecord.Event.MouseEvent.dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED) {
-				COORD coord;
-				coord.X = InputRecord.Event.MouseEvent.dwMousePosition.X;
-				coord.Y = InputRecord.Event.MouseEvent.dwMousePosition.Y;
-				SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
-				Position pos;
-				pos.x = InputRecord.Event.MouseEvent.dwMousePosition.X;
-				pos.y = InputRecord.Event.MouseEvent.dwMousePosition.Y;
-				mine.update(pos);
-			}
-		}
+		for (auto obj : gameObjects) obj->internalUpdate();
+
+		for (auto it = gameObjects.cbegin(); 
+			it != gameObjects.cend(); it++)
+			(*it)->internalDraw();
 		
+		screen.render();
+
+
+
+
+		t2 = clock();
+		if ((t2 - t1) / 1000 > 10)
+			plus++;
+		Sleep(150 - plus);
+
+		Input::EndOfFrame();		
 	}
 
 	return 0;
