@@ -232,7 +232,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
 
         while ((GetTickCount() - starting_point) < 25);
-		if (Hitted_count == 3) break;
+		if (Hitted_count >= 3) break;
     }
 
     // clean up DirectX and COM
@@ -376,7 +376,7 @@ void initD3D(HWND hWnd)
 								&sprite_hp);    // load to sprite
 
 	D3DXCreateFont(d3ddev,    // the D3D Device
-		30,    // font height of 30
+		40,    // font height of 30
 		0,    // default font width
 		FW_NORMAL,    // font weight
 		1,    // not using MipLevels
@@ -580,17 +580,14 @@ void render_frame(void)
 		d3dspt->Draw(sprite_hp, &Hp, &center_hp, &position_hp, D3DCOLOR_ARGB(255, 255, 255, 255));
 	}
 
-	HWND hwnd;
-	TCHAR buf[20];
-	_stprintf(buf, _T("%d"), Score);
-	//MessageBox(hwnd, buf, L"Testing", MB_OK);
-
+	char print[20];
+	_itoa(Score, print, 10);
 	// 점수 출력 - 구현 실패
 	RECT textbox;
-	SetRect(&textbox, 20, 20, 40, 40);
+	SetRect(&textbox, 32, SCREEN_HEIGHT-40, 100, SCREEN_HEIGHT);
 	dxfont->DrawTextA(NULL,
-		"h",
-		1,
+		print,
+		3,
 		&textbox,
 		DT_LEFT,
 		D3DCOLOR_ARGB(255, 255, 255, 255));
