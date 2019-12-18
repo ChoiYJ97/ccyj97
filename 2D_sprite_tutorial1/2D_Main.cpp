@@ -1,14 +1,14 @@
 /*
 	구현내용
-	1. 배경 이미지 추가						- 구현
-	2. 총알 격추 시 사라짐					- 구현
+	1. 배경 이미지 추가							- 구현
+	2. 총알 격추 시 사라짐						- 구현
 	3. 적 피격 시 사라짐						- 구현
-	4. hp 생성								- 구현
+	4. hp 생성									- 구현
 	5. 적과 주인공 부딪히면 피 -1				- 구현
 	6. 피 3개 다 사용시 게임 종료				- 구현
-	7. 총알 여러 발을 쏘는 알고리즘			- 구현 실패
-	8. 점수 및 점수판 구현					- 구현 실패
-	9. 몬스터 스폰 수를 특정 점수 마다 증가	- 구현
+	7. 총알 여러 발을 쏘는 알고리즘				- 구현 실패
+	8. 점수 및 점수판 구현						- 구현 실패
+	9. 몬스터 스폰 수를 특정 점수 마다 증가		- 구현
 	10. 필살기(스킬) 구현						- 구현 실패
 	11. 주인공 벽 밖으로 못나가게 하기			- 구현
 	12. 몬스터 움직임의 방향을 랜덤하게 주기	- 구현
@@ -50,6 +50,7 @@ LPDIRECT3DTEXTURE9 sprite_enemy;    // the pointer to the sprite
 LPDIRECT3DTEXTURE9 sprite_bullet;    // the pointer to the sprite
 LPDIRECT3DTEXTURE9 sprite_space;    // the pointer to the sprite
 LPDIRECT3DTEXTURE9 sprite_hp;    // the pointer to the sprite
+LPDIRECT3DTEXTURE9 sprite_fire;
 
 // function prototypes
 void initD3D(HWND hWnd);    // sets up and initializes Direct3D
@@ -58,7 +59,6 @@ void cleanD3D(void);		// closes Direct3D and releases memory
 
 void init_game(void);
 void do_game_logic(void); 
-
 
 // the WindowProc function prototype
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
@@ -115,7 +115,6 @@ class Enemy:public entity{
 	
 public:
 
-	//void fire(); 
 	void init(float x, float y) { x_pos = x;	y_pos = y; }
 	void move(int i){
 		switch (i)
@@ -137,7 +136,11 @@ public:
 			break;
 		}
 	}
-	void hit() { x_pos = (float)(rand() % 600); y_pos = rand() % 200 - 300; }
+	void hit() { 
+		x_pos = (float)(rand() % 600);
+		y_pos = rand() % 200 - 300;
+	}
+	void stop() { x_pos = x_pos; y_pos = y_pos; }
 }; 
 
 // 총알 클래스 
@@ -147,7 +150,7 @@ public:
 bool bShow; 
 
 void init(float x, float y) { x_pos = x;	y_pos = y; }
-void move() { y_pos -= 8; }
+void move() { y_pos -= 17; }
 bool show() { return bShow; }
 void hide() { bShow = false; }
 void active(){ bShow = true; }
@@ -256,7 +259,6 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
     return DefWindowProc (hWnd, message, wParam, lParam);
 }
 
-
 // this function initializes and prepares Direct3D for use
 void initD3D(HWND hWnd)
 {
@@ -300,7 +302,7 @@ void initD3D(HWND hWnd)
 
 
     D3DXCreateTextureFromFileEx(d3ddev,    // the device pointer
-                                L"hero.png",    // the file name
+                                L"ship.png",    // the file name
                                 D3DX_DEFAULT,    // default width
                                 D3DX_DEFAULT,    // default height
                                 D3DX_DEFAULT,    // no mip mapping
@@ -315,7 +317,7 @@ void initD3D(HWND hWnd)
                                 &sprite_hero);    // load to sprite
 
     D3DXCreateTextureFromFileEx(d3ddev,    // the device pointer
-                                L"enemy.png",    // the file name
+                                L"enemy1.png",    // the file name
                                 D3DX_DEFAULT,    // default width
                                 D3DX_DEFAULT,    // default height
                                 D3DX_DEFAULT,    // no mip mapping
@@ -331,7 +333,7 @@ void initD3D(HWND hWnd)
 
 
 	D3DXCreateTextureFromFileEx(d3ddev,    // the device pointer
-                                L"bullet.png",    // the file name
+                                L"bullet1.png",    // the file name
                                 D3DX_DEFAULT,    // default width
                                 D3DX_DEFAULT,    // default height
                                 D3DX_DEFAULT,    // no mip mapping
@@ -340,7 +342,7 @@ void initD3D(HWND hWnd)
                                 D3DPOOL_MANAGED,    // typical memory handling
                                 D3DX_DEFAULT,    // no filtering
                                 D3DX_DEFAULT,    // no mip filtering
-                                D3DCOLOR_XRGB(255, 0, 255),    // the hot-pink color key
+                                D3DCOLOR_XRGB(0, 0, 0),    // the hot-pink color key
                                 NULL,    // no image info struct
                                 NULL,    // not using 256 colors
                                 &sprite_bullet);    // load to sprite
@@ -375,18 +377,33 @@ void initD3D(HWND hWnd)
 								NULL,    // not using 256 colors
 								&sprite_hp);    // load to sprite
 
-	D3DXCreateFont(d3ddev,    // the D3D Device
-		40,    // font height of 30
-		0,    // default font width
-		FW_NORMAL,    // font weight
-		1,    // not using MipLevels
-		true,    // italic font
-		DEFAULT_CHARSET,    // default character set
-		OUT_DEFAULT_PRECIS,    // default OutputPrecision,
-		DEFAULT_QUALITY,    // default Quality
-		DEFAULT_PITCH | FF_DONTCARE,    // default pitch and family
-		L"Arial",    // use Facename Arial
-		&dxfont);    // the font object
+	//D3DXCreateTextureFromFileEx(d3ddev,    // the device pointer
+	//							L"fireware1.png",    // the file name
+	//							D3DX_DEFAULT,    // default width
+	//							D3DX_DEFAULT,    // default height
+	//							D3DX_DEFAULT,    // no mip mapping
+	//							NULL,    // regular usage
+	//							D3DFMT_A8R8G8B8,    // 32-bit pixels with alpha
+	//							D3DPOOL_MANAGED,    // typical memory handling
+	//							D3DX_DEFAULT,    // no filtering
+	//							D3DX_DEFAULT,    // no mip filtering
+	//							D3DCOLOR_XRGB(255, 0, 255),    // the hot-pink color key
+	//							NULL,    // no image info struct
+	//							NULL,    // not using 256 colors
+	//							&sprite_fire);    // load to sprite
+
+	D3DXCreateFont (d3ddev,    // the D3D Device
+					40,    // font height of 30
+					0,    // default font width
+					FW_NORMAL,    // font weight
+					1,    // not using MipLevels
+					true,    // italic font
+					DEFAULT_CHARSET,    // default character set
+					OUT_DEFAULT_PRECIS,    // default OutputPrecision,
+					DEFAULT_QUALITY,    // default Quality
+					DEFAULT_PITCH | FF_DONTCARE,    // default pitch and family
+					L"Arial",    // use Facename Arial
+					&dxfont);    // the font object
 
     return;
 }
@@ -535,11 +552,14 @@ void render_frame(void)
     D3DXVECTOR3 position(150.0f, 50.0f, 0.0f);    // position at 50, 50 with no depth
     d3dspt->Draw(sprite, &part, &center, &position, D3DCOLOR_ARGB(127, 255, 255, 255));
 	*/
+	static int index = 0;
+	index++;
+	if (index > 4) index = 0;
 
 	//배경 이미지
 	RECT space;
 	SetRect(&space, 0, 0, 650, 500);
-	D3DXVECTOR3 center_space(0.0f, 0.0f, -2.0f);  
+	D3DXVECTOR3 center_space(0.0f, 0.0f, -1.0f);  
 	D3DXVECTOR3 position_space(0.0f, 0.0f, 0.0f);  
 	d3dspt->Draw(sprite_space, &space, &center_space, &position_space, D3DCOLOR_ARGB(255, 255, 255, 255));
 
@@ -560,7 +580,20 @@ void render_frame(void)
 		d3dspt->Draw(sprite_bullet, &Bullet, &center_bullet, &position_bullet, D3DCOLOR_ARGB(255, 255, 255, 255));
 	}
 
-	//적 
+	//float X = enemy->x_pos;
+	//float Y = enemy->y_pos;
+	////폭발효과
+	//RECT fire;
+	//SetRect(&fire, 0, 0, 64, 64);
+	//D3DXVECTOR3 center_fire(0.0f, 0.0f, -1.0f);
+	//if (enemy->x_pos <= bullet.x_pos + 66 && enemy->y_pos <= bullet.y_pos + 66) {
+	//	if (enemy->x_pos >= bullet.x_pos - 2 && enemy->y_pos >= bullet.y_pos - 2) {
+	//		D3DXVECTOR3 position_fire(X, Y, 0.0f);
+	//		d3dspt->Draw(sprite_fire, &fire, &center_fire, &position_fire, D3DCOLOR_ARGB(255, 255, 255, 255));
+	//	}
+	//}
+
+	//적
 	RECT Enemy;
 	SetRect(&Enemy, 0, 0, 64, 64);
     D3DXVECTOR3 center_enemy(32.0f, 32.0f, -1.0f);    
@@ -582,7 +615,7 @@ void render_frame(void)
 
 	char print[20];
 	_itoa(Score, print, 10);
-	// 점수 출력 - 구현 실패
+	// 점수 출력 - 구현은 성공, 배경에 가려서 안보여짐
 	RECT textbox;
 	SetRect(&textbox, 32, SCREEN_HEIGHT-40, 100, SCREEN_HEIGHT);
 	dxfont->DrawTextA(NULL,
@@ -615,5 +648,6 @@ void cleanD3D(void)
 	sprite_bullet->Release();
 	sprite_space->Release();
 	sprite_hp->Release();
+	//sprite_fire->Release();
     return;
 }
